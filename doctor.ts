@@ -2,7 +2,7 @@
  * maw doctor — health check across all systems.
  * Checks: server, identity, peers, sessions, plugins.
  */
-import { maw } from "/home/neo/Code/github.com/Soul-Brews-Studio/maw-js/src/sdk";
+import { maw } from "maw/sdk";
 
 export const command = {
   name: ["doctor", "doc", "health"],

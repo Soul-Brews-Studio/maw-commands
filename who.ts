@@ -2,7 +2,7 @@
  * maw who — show current node identity + agents.
  * Uses maw SDK — typed, safe, no execSync/curl.
  */
-import { maw } from "/home/neo/Code/github.com/Soul-Brews-Studio/maw-js/src/sdk";
+import { maw } from "maw/sdk";
 
 export const command = {
   name: "who",

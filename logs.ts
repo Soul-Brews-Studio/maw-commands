@@ -3,7 +3,7 @@
  * Usage: maw logs [query]    — search across all agents
  *        maw logs agents     — list agents with session counts
  */
-import { maw } from "/home/neo/Code/github.com/Soul-Brews-Studio/maw-js/src/sdk";
+import { maw } from "maw/sdk";
 
 export const command = {
   name: ["logs", "search"],

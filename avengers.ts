@@ -5,7 +5,7 @@
  *        maw avengers best    — highest capacity
  *        maw avengers traffic — traffic stats
  */
-import { maw } from "/home/neo/Code/github.com/Soul-Brews-Studio/maw-js/src/sdk";
+import { maw } from "maw/sdk";
 
 export const command = {
   name: ["avengers", "av"],

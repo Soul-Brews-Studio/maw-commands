@@ -2,7 +2,7 @@
  * maw ping — quick peer connectivity check with latency.
  * Simpler than `maw peers` — just reachable/unreachable + ms.
  */
-import { maw } from "/home/neo/Code/github.com/Soul-Brews-Studio/maw-js/src/sdk";
+import { maw } from "maw/sdk";
 
 export const command = {
   name: "ping",

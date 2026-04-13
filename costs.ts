@@ -2,7 +2,7 @@
  * maw costs — token usage + estimated cost per agent.
  * Wraps /api/costs — scans Claude session JSONL files.
  */
-import { maw } from "/home/neo/Code/github.com/Soul-Brews-Studio/maw-js/src/sdk";
+import { maw } from "maw/sdk";
 
 export const command = {
   name: ["costs", "cost", "$$"],

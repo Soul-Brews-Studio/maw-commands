@@ -2,7 +2,7 @@
  * maw feed — recent activity stream across the fleet.
  * Shows: who did what, when, which project.
  */
-import { maw } from "/home/neo/Code/github.com/Soul-Brews-Studio/maw-js/src/sdk";
+import { maw } from "maw/sdk";
 
 export const command = {
   name: ["feed", "activity", "log"],

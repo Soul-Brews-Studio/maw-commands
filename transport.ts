@@ -2,7 +2,7 @@
  * maw transport — transport layer connectivity status.
  * Shows: tmux, HTTP, MQTT and other active transports.
  */
-import { maw } from "/home/neo/Code/github.com/Soul-Brews-Studio/maw-js/src/sdk";
+import { maw } from "maw/sdk";
 
 export const command = {
   name: ["transport", "tp"],

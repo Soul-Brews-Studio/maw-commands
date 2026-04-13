@@ -2,7 +2,7 @@
  * maw peers — federation peer status at a glance.
  * Shows: each peer's reachability, latency, clock drift, agents.
  */
-import { maw } from "/home/neo/Code/github.com/Soul-Brews-Studio/maw-js/src/sdk";
+import { maw } from "maw/sdk";
 
 export const command = {
   name: ["peers", "mesh"],
