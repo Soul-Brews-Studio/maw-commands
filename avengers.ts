@@ -12,14 +12,32 @@ export const command = {
   description: "ARRA-01 rate limit monitor — accounts, capacity, traffic",
 };
 
+interface Account {
+  account?: string;
+  name?: string;
+  remaining?: number;
+  limit?: number;
+  requests?: number;
+  tokens?: number;
+}
+
+interface TrafficResponse {
+  traffic: Account[];
+  speed: { tokensPerSecond?: number } | null;
+}
+
+interface StatusResponse {
+  accounts: Account[];
+  total: number;
+}
+
 export default async function (args: string[]) {
   const sub = args[0]?.toLowerCase();
 
   if (sub === "best") {
-    let data: any;
-    try { data = await maw.fetch("/api/avengers/best"); }
-    catch (e: any) { maw.print.err(e.message); return; }
-    if (!data) return;
+    let data: Account;
+    try { data = await maw.fetch<Account>("/api/avengers/best"); }
+    catch { maw.print.err("Avengers unreachable or not configured"); return; }
     maw.print.header("Best Account");
     maw.print.ok(`${data.account || data.name || "unknown"}`);
     if (data.remaining != null) maw.print.kv("remaining", `${data.remaining}`);
@@ -29,25 +47,23 @@ export default async function (args: string[]) {
   }
 
   if (sub === "traffic") {
-    let data: { traffic: any; speed: any };
-    try { data = await maw.fetch("/api/avengers/traffic"); }
-    catch (e: any) { maw.print.err(e.message); return; }
-    if (!data) return;
+    let data: TrafficResponse;
+    try { data = await maw.fetch<TrafficResponse>("/api/avengers/traffic"); }
+    catch { maw.print.err("Avengers unreachable or not configured"); return; }
     maw.print.header("Traffic");
-    if (Array.isArray(data.traffic)) {
-      for (const t of data.traffic) console.log(`  ${(t.account || t.name || "?").padEnd(16)} ${t.requests || 0} req  ${t.tokens || 0} tok`);
-    } else { maw.print.dim(JSON.stringify(data.traffic).slice(0, 120)); }
-    if (data.speed) { maw.print.nl(); maw.print.kv("speed", JSON.stringify(data.speed)); }
+    for (const t of data.traffic) {
+      console.log(`  ${(t.account || t.name || "?").padEnd(16)} ${t.requests || 0} req  ${t.tokens || 0} tok`);
+    }
+    if (data.speed) { maw.print.nl(); maw.print.kv("speed", `${data.speed.tokensPerSecond ?? 0} tok/s`); }
     maw.print.nl();
     return;
   }
 
   // Default: status
-  let data: { accounts: any[]; total: number };
-  try { data = await maw.fetch("/api/avengers/status"); }
-  catch (e: any) { maw.print.err(e.message); return; }
+  let data: StatusResponse;
+  try { data = await maw.fetch<StatusResponse>("/api/avengers/status"); }
+  catch { maw.print.err("Avengers unreachable or not configured"); return; }
   maw.print.header(`Avengers (${data.total} accounts)`);
-  if (!Array.isArray(data.accounts)) { maw.print.dim("No account data"); return; }
   for (const a of data.accounts) {
     const name = (a.account || a.name || "?").padEnd(16);
     const pct = a.limit ? Math.round(((a.remaining ?? 0) / a.limit) * 100) : 0;
