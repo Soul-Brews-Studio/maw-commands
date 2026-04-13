@@ -26,6 +26,13 @@ curl -fsSL https://raw.githubusercontent.com/Soul-Brews-Studio/maw-commands/main
 |--------|---------|-------------|
 | [plugin.ts](plugin.ts) | `maw plugin install/uninstall/list` | Plugin manager |
 | [hello.ts](hello.ts) | `maw hello` | Example (hello world) |
+| [status.ts](status.ts) | `maw st` | Quick fleet overview (SDK) |
+| [who.ts](who.ts) | `maw who` | Node identity + agents (SDK) |
+| [dashboard.ts](dashboard.ts) | `maw dash` | Open Dashboard Pro |
+| [quick.ts](quick.ts) | `maw q` | Context-aware quick actions |
+| [peers.ts](peers.ts) | `maw peers` / `maw mesh` | Federation peer status (SDK) |
+| [doctor.ts](doctor.ts) | `maw doctor` / `maw doc` | System health check (SDK) |
+| [feed.ts](feed.ts) | `maw feed` / `maw activity` | Activity stream (SDK) |
 
 ## Write a Plugin
 
