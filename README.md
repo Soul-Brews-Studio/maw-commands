@@ -38,6 +38,8 @@ curl -fsSL https://raw.githubusercontent.com/Soul-Brews-Studio/maw-commands/main
 | [transport.ts](transport.ts) | `maw transport` / `maw tp` | Transport layer connectivity |
 | [avengers.ts](avengers.ts) | `maw avengers` / `maw av` | ARRA-01 rate limit monitor |
 | [worktrees.ts](worktrees.ts) | `maw wt` | Git worktree manager |
+| [triggers.ts](triggers.ts) | `maw triggers` | Workflow trigger viewer |
+| [morning.ts](morning.ts) | `maw morning` / `maw gm` | Daily briefing (composite) |
 
 ## Write a Plugin
 
