@@ -33,6 +33,9 @@ curl -fsSL https://raw.githubusercontent.com/Soul-Brews-Studio/maw-commands/main
 | [peers.ts](peers.ts) | `maw peers` / `maw mesh` | Federation peer status (SDK) |
 | [doctor.ts](doctor.ts) | `maw doctor` / `maw doc` | System health check (SDK) |
 | [feed.ts](feed.ts) | `maw feed` / `maw activity` | Activity stream (SDK) |
+| [costs.ts](costs.ts) | `maw costs` / `maw $$` | Token usage + cost per agent |
+| [logs.ts](logs.ts) | `maw logs <query>` / `maw logs agents` | Session search + agent list |
+| [transport.ts](transport.ts) | `maw transport` / `maw tp` | Transport layer connectivity |
 
 ## Write a Plugin
 
