@@ -1,26 +1,20 @@
 /**
  * maw plugin — install, uninstall, and list command plugins.
  *
- * Install from GitHub:
- *   maw plugin install https://github.com/user/maw-cmd-foo
- *   maw plugin install user/maw-cmd-foo
- *
- * The repo should have a command.ts (or index.ts) that exports:
- *   export const command = { name: "foo", description: "..." };
- *   export default async function(args, flags) { ... }
+ * Install from GitHub (copies files, no symlinks):
+ *   maw plugin install Soul-Brews-Studio/maw-commands
+ *   maw plugin install Soul-Brews-Studio/maw-commands --dir ~/custom/dir
+ *   maw plugin install Soul-Brews-Studio/maw-commands/costs.ts
  *
  * Uninstall:
- *   maw plugin uninstall foo
- *   maw plugin rm foo
+ *   maw plugin uninstall costs
+ *   maw plugin rm costs
  *
  * List:
  *   maw plugin list
  *   maw plugin ls
- *
- * Like Home Assistant add-ons: git clone → symlink → ready.
  */
-
-import { existsSync, readdirSync, readFileSync, mkdirSync, unlinkSync, symlinkSync } from "fs";
+import { existsSync, readdirSync, readFileSync, mkdirSync, unlinkSync, copyFileSync, writeFileSync } from "fs";
 import { join, basename } from "path";
 import { homedir } from "os";
 import { execSync } from "child_process";
@@ -30,178 +24,194 @@ export const command = {
   description: "Install, uninstall, and list command plugins",
 };
 
-const COMMANDS_DIR = join(homedir(), ".oracle", "commands");
-const PLUGIN_MANIFEST = join(homedir(), ".oracle", "commands", ".plugins.json");
+const DEFAULT_DIR = join(homedir(), ".oracle", "commands");
+const MANIFEST = ".plugins.json";
 
 interface PluginEntry {
   name: string;
   repo: string;
+  file: string;
   installedAt: string;
-  path: string;
+  version?: string;
 }
 
-function loadManifest(): PluginEntry[] {
-  try { return JSON.parse(readFileSync(PLUGIN_MANIFEST, "utf-8")); }
+function manifestPath(dir: string) { return join(dir, MANIFEST); }
+
+function loadManifest(dir: string): PluginEntry[] {
+  try { return JSON.parse(readFileSync(manifestPath(dir), "utf-8")); }
   catch { return []; }
 }
 
-function saveManifest(entries: PluginEntry[]) {
-  mkdirSync(COMMANDS_DIR, { recursive: true });
-  require("fs").writeFileSync(PLUGIN_MANIFEST, JSON.stringify(entries, null, 2) + "\n");
+function saveManifest(dir: string, entries: PluginEntry[]) {
+  writeFileSync(manifestPath(dir), JSON.stringify(entries, null, 2) + "\n");
 }
 
-export default async function(args: string[]) {
-  const sub = args[0]?.toLowerCase();
+function parseArgs(args: string[]): { sub: string; source?: string; dir: string; specific?: string } {
+  const sub = args[0]?.toLowerCase() || "";
+  let dir = DEFAULT_DIR;
+  let source: string | undefined;
+  let specific: string | undefined;
 
-  if (sub === "install" || sub === "add") {
-    await install(args[1]);
-  } else if (sub === "uninstall" || sub === "rm" || sub === "remove") {
-    await uninstall(args[1]);
-  } else if (sub === "list" || sub === "ls" || !sub) {
-    await list();
-  } else {
+  for (let i = 1; i < args.length; i++) {
+    if (args[i] === "--dir" && args[i + 1]) { dir = args[++i]; continue; }
+    if (!source) source = args[i];
+  }
+
+  // Check for specific file: org/repo/file.ts
+  if (source) {
+    const parts = source.replace(/^https?:\/\/github\.com\//, "").replace(/\.git$/, "").split("/");
+    if (parts.length > 2 && parts[parts.length - 1].endsWith(".ts")) {
+      specific = parts.pop()!;
+      source = parts.join("/");
+    }
+  }
+
+  return { sub, source, dir, specific };
+}
+
+export default async function (args: string[]) {
+  const { sub, source, dir, specific } = parseArgs(args);
+
+  if (sub === "install" || sub === "add") await install(source, dir, specific);
+  else if (sub === "uninstall" || sub === "rm" || sub === "remove") await uninstall(source, dir);
+  else if (sub === "list" || sub === "ls" || !sub) await list(dir);
+  else {
     console.log(`\x1b[36mmaw plugin\x1b[0m — manage command plugins\n`);
-    console.log(`  maw plugin install <url|slug>  Install from GitHub`);
-    console.log(`  maw plugin uninstall <name>    Remove a plugin`);
-    console.log(`  maw plugin list                List installed plugins`);
-    console.log(`\n\x1b[90mPlugins live in ~/.oracle/commands/\x1b[0m`);
+    console.log(`  maw plugin install <org/repo>              Install all plugins from repo`);
+    console.log(`  maw plugin install <org/repo/file.ts>      Install one plugin`);
+    console.log(`  maw plugin install <org/repo> --dir <path> Custom install directory`);
+    console.log(`  maw plugin uninstall <name>                Remove a plugin`);
+    console.log(`  maw plugin list                            List installed plugins`);
+    console.log(`\n\x1b[90mDefault dir: ~/.oracle/commands/\x1b[0m`);
   }
 }
 
-async function install(source?: string) {
-  if (!source) { console.error("usage: maw plugin install <github-url|org/repo>"); process.exit(1); }
+async function install(source: string | undefined, dir: string, specific?: string) {
+  if (!source) { console.error("usage: maw plugin install <org/repo> [--dir <path>]"); return; }
 
-  // Normalize: URL or slug → org/repo
-  let slug = source
-    .replace(/^https?:\/\/github\.com\//, "")
-    .replace(/\.git$/, "")
-    .replace(/\/$/, "");
+  const slug = source.replace(/^https?:\/\/github\.com\//, "").replace(/\.git$/, "").replace(/\/$/, "");
+  if (!slug.includes("/")) { console.error(`\x1b[31m✗\x1b[0m need org/repo format`); return; }
 
-  if (!slug.includes("/")) { console.error(`\x1b[31m✗\x1b[0m "${source}" doesn't look like a GitHub repo (need org/repo)`); process.exit(1); }
+  console.log(`\n  \x1b[36m⏳\x1b[0m fetching ${slug}...`);
 
-  const repoName = slug.split("/").pop()!;
-  console.log(`\n  \x1b[36m⏳\x1b[0m installing ${slug}...`);
-
-  // Clone via ghq
-  try {
-    execSync(`ghq get -u github.com/${slug}`, { stdio: "pipe" });
-  } catch {
-    // Try direct git clone as fallback
-    const target = join(homedir(), ".oracle", "command-repos", repoName);
+  // Clone/update via ghq
+  try { execSync(`ghq get -u github.com/${slug}`, { stdio: "pipe" }); }
+  catch {
+    const fallback = join(homedir(), ".oracle", "command-repos", slug.split("/").pop()!);
     mkdirSync(join(homedir(), ".oracle", "command-repos"), { recursive: true });
-    if (!existsSync(target)) {
-      execSync(`git clone https://github.com/${slug}.git ${target}`, { stdio: "pipe" });
-    } else {
-      execSync(`git -C ${target} pull --ff-only`, { stdio: "pipe" });
-    }
+    if (!existsSync(fallback)) execSync(`git clone https://github.com/${slug}.git ${fallback}`, { stdio: "pipe" });
+    else execSync(`git -C ${fallback} pull --ff-only`, { stdio: "pipe" });
   }
 
-  // Find the cloned repo
+  // Find cloned path
   let repoPath: string;
-  try {
-    repoPath = execSync(`ghq list --full-path | grep -i '/${slug}$' | head -1`, { encoding: "utf-8" }).trim();
-  } catch {
-    repoPath = join(homedir(), ".oracle", "command-repos", repoName);
+  try { repoPath = execSync(`ghq list --full-path | grep -i '/${slug}$' | head -1`, { encoding: "utf-8" }).trim(); }
+  catch { repoPath = join(homedir(), ".oracle", "command-repos", slug.split("/").pop()!); }
+
+  if (!existsSync(repoPath)) { console.error(`\x1b[31m✗\x1b[0m clone failed`); return; }
+
+  // Get version from git
+  let version = "";
+  try { version = execSync(`git -C ${repoPath} describe --tags --always 2>/dev/null || git -C ${repoPath} rev-parse --short HEAD`, { encoding: "utf-8" }).trim(); }
+  catch { /* ok */ }
+
+  // Find plugin files
+  mkdirSync(dir, { recursive: true });
+  const manifest = loadManifest(dir);
+
+  const tsFiles = readdirSync(repoPath).filter((f) => f.endsWith(".ts") && f !== "plugin.ts");
+  const plugins: string[] = [];
+
+  for (const f of specific ? [specific] : tsFiles) {
+    const srcPath = join(repoPath, f);
+    if (!existsSync(srcPath)) { console.log(`  \x1b[31m✗\x1b[0m not found: ${f}`); continue; }
+
+    const content = readFileSync(srcPath, "utf-8");
+    if (!content.includes("export const command")) continue;
+
+    // Copy (not symlink!) to target dir
+    const destPath = join(dir, f);
+    copyFileSync(srcPath, destPath);
+
+    // Verify it loads
+    let cmdName = f.replace(/\.ts$/, "");
+    try {
+      const mod = await import(destPath);
+      cmdName = Array.isArray(mod.command?.name) ? mod.command.name[0] : (mod.command?.name || cmdName);
+    } catch { /* ok, still installed */ }
+
+    plugins.push(cmdName);
+    console.log(`  \x1b[32m✓\x1b[0m ${cmdName}`);
+
+    // Update manifest
+    const idx = manifest.findIndex((e) => e.file === f);
+    const entry: PluginEntry = { name: cmdName, repo: slug, file: f, installedAt: new Date().toISOString(), version };
+    if (idx >= 0) manifest[idx] = entry; else manifest.push(entry);
   }
 
-  if (!existsSync(repoPath)) { console.error(`\x1b[31m✗\x1b[0m clone failed: ${repoPath}`); process.exit(1); }
-
-  // Find the command entry point
-  const candidates = ["command.ts", "index.ts", "src/command.ts", "src/index.ts", `${repoName}.ts`];
-  let entryFile: string | null = null;
-  for (const c of candidates) {
-    const p = join(repoPath, c);
-    if (existsSync(p)) { entryFile = p; break; }
-  }
-  if (!entryFile) {
-    // Check for any .ts file that exports command
-    for (const f of readdirSync(repoPath).filter(f => f.endsWith(".ts"))) {
-      const content = readFileSync(join(repoPath, f), "utf-8");
-      if (content.includes("export const command")) { entryFile = join(repoPath, f); break; }
+  // Always copy plugin.ts itself (the manager)
+  if (!specific) {
+    const pluginSrc = join(repoPath, "plugin.ts");
+    if (existsSync(pluginSrc)) {
+      copyFileSync(pluginSrc, join(dir, "plugin.ts"));
+      console.log(`  \x1b[32m✓\x1b[0m plugin (manager)`);
     }
   }
-  if (!entryFile) { console.error(`\x1b[31m✗\x1b[0m no command entry point found in ${repoPath}`); process.exit(1); }
 
-  // Symlink into ~/.oracle/commands/
-  mkdirSync(COMMANDS_DIR, { recursive: true });
-  const linkName = join(COMMANDS_DIR, `${repoName}.ts`);
-  try { unlinkSync(linkName); } catch { /* expected */ }
-  symlinkSync(entryFile, linkName);
-  console.log(`  \x1b[32m✓\x1b[0m symlinked: ${linkName} → ${entryFile}`);
-
-  // Verify it loads
-  try {
-    const mod = await import(entryFile);
-    if (mod.command?.name) {
-      const name = Array.isArray(mod.command.name) ? mod.command.name[0] : mod.command.name;
-      console.log(`  \x1b[32m✓\x1b[0m command registered: maw ${name}`);
-      console.log(`  \x1b[90m  ${mod.command.description || ""}\x1b[0m`);
-    } else {
-      console.log(`  \x1b[33m⚠\x1b[0m no "command" export found — file installed but won't auto-register`);
-    }
-  } catch (e: any) {
-    console.log(`  \x1b[33m⚠\x1b[0m import failed: ${e.message?.slice(0, 80)}`);
-  }
-
-  // Update manifest
-  const manifest = loadManifest().filter(e => e.name !== repoName);
-  manifest.push({ name: repoName, repo: slug, installedAt: new Date().toISOString(), path: entryFile });
-  saveManifest(manifest);
-
-  console.log(`\n  \x1b[32m✓ Installed!\x1b[0m Run: maw ${repoName.replace(/^maw-cmd-/, "").replace(/^maw-/, "")}\n`);
+  saveManifest(dir, manifest);
+  console.log(`\n  \x1b[32m✓ ${plugins.length} plugins installed\x1b[0m → ${dir}`);
+  if (version) console.log(`  \x1b[90mversion: ${version}\x1b[0m`);
+  console.log();
 }
 
-async function uninstall(name?: string) {
-  if (!name) { console.error("usage: maw plugin uninstall <name>"); process.exit(1); }
+async function uninstall(name: string | undefined, dir: string) {
+  if (!name) { console.error("usage: maw plugin uninstall <name>"); return; }
 
-  const manifest = loadManifest();
-  const entry = manifest.find(e => e.name === name || e.name === `maw-cmd-${name}` || e.name === `maw-${name}`);
-
-  // Remove symlink
-  const candidates = [
-    join(COMMANDS_DIR, `${name}.ts`),
-    join(COMMANDS_DIR, `maw-cmd-${name}.ts`),
-    join(COMMANDS_DIR, `maw-${name}.ts`),
-  ];
-  let removed = false;
-  for (const f of candidates) {
-    if (existsSync(f)) { unlinkSync(f); console.log(`  \x1b[32m✓\x1b[0m removed: ${f}`); removed = true; }
-  }
+  const manifest = loadManifest(dir);
+  const entry = manifest.find((e) => e.name === name || e.file === `${name}.ts`);
 
   if (entry) {
-    saveManifest(manifest.filter(e => e !== entry));
-    console.log(`  \x1b[32m✓\x1b[0m uninstalled: ${entry.name}`);
-    console.log(`  \x1b[90m  repo clone kept (ghq/git). Remove manually if needed.\x1b[0m`);
-  } else if (!removed) {
-    console.error(`  \x1b[31m✗\x1b[0m plugin not found: ${name}`);
+    const filePath = join(dir, entry.file);
+    if (existsSync(filePath)) unlinkSync(filePath);
+    saveManifest(dir, manifest.filter((e) => e !== entry));
+    console.log(`  \x1b[32m✓\x1b[0m uninstalled: ${entry.name} (${entry.file})`);
+    console.log(`  \x1b[90m  repo clone kept. Remove: ghq rm ${entry.repo}\x1b[0m`);
+  } else {
+    // Try direct file removal
+    const filePath = join(dir, `${name}.ts`);
+    if (existsSync(filePath)) {
+      unlinkSync(filePath);
+      console.log(`  \x1b[32m✓\x1b[0m removed: ${name}.ts`);
+    } else {
+      console.error(`  \x1b[31m✗\x1b[0m not found: ${name}`);
+    }
   }
 }
 
-async function list() {
-  // List all .ts/.js files in commands dir
-  if (!existsSync(COMMANDS_DIR)) {
-    console.log(`\n  \x1b[90mNo plugins. Install: maw plugin install <github-url>\x1b[0m\n`);
+async function list(dir: string) {
+  if (!existsSync(dir)) {
+    console.log(`\n  \x1b[90mNo plugins. Install: maw plugin install <org/repo>\x1b[0m\n`);
     return;
   }
 
-  const files = readdirSync(COMMANDS_DIR).filter(f => /\.(ts|js)$/.test(f));
-  const manifest = loadManifest();
+  const files = readdirSync(dir).filter((f) => /\.(ts|js)$/.test(f));
+  const manifest = loadManifest(dir);
 
-  console.log(`\n  \x1b[36mCommand Plugins\x1b[0m  (${files.length} installed)\n`);
+  console.log(`\n  \x1b[36mCommand Plugins\x1b[0m  (${files.length} in ${dir})\n`);
 
   for (const f of files) {
-    const fullPath = join(COMMANDS_DIR, f);
-    const entry = manifest.find(e => e.path === fullPath || e.name === f.replace(/\.(ts|js)$/, ""));
-    const source = entry ? `\x1b[90m← ${entry.repo}\x1b[0m` : "\x1b[90m(local)\x1b[0m";
+    const fullPath = join(dir, f);
+    const entry = manifest.find((e) => e.file === f);
+    const source = entry ? `\x1b[90m← ${entry.repo}${entry.version ? ` @ ${entry.version}` : ""}\x1b[0m` : "\x1b[90m(local)\x1b[0m";
 
     try {
       const mod = await import(fullPath);
       const name = mod.command?.name;
       const desc = mod.command?.description || "";
       const displayName = Array.isArray(name) ? name[0] : (name || f);
-      console.log(`  \x1b[32m●\x1b[0m maw ${displayName.padEnd(20)} ${desc.slice(0, 40)} ${source}`);
+      console.log(`  \x1b[32m●\x1b[0m maw ${String(displayName).padEnd(18)} ${desc.slice(0, 40)} ${source}`);
     } catch {
-      console.log(`  \x1b[31m●\x1b[0m ${f.padEnd(24)} \x1b[31m(load error)\x1b[0m ${source}`);
+      console.log(`  \x1b[31m●\x1b[0m ${f.padEnd(22)} \x1b[31m(load error)\x1b[0m ${source}`);
     }
   }
   console.log();
