@@ -36,6 +36,8 @@ curl -fsSL https://raw.githubusercontent.com/Soul-Brews-Studio/maw-commands/main
 | [costs.ts](costs.ts) | `maw costs` / `maw $$` | Token usage + cost per agent |
 | [logs.ts](logs.ts) | `maw logs <query>` / `maw logs agents` | Session search + agent list |
 | [transport.ts](transport.ts) | `maw transport` / `maw tp` | Transport layer connectivity |
+| [avengers.ts](avengers.ts) | `maw avengers` / `maw av` | ARRA-01 rate limit monitor |
+| [worktrees.ts](worktrees.ts) | `maw wt` | Git worktree manager |
 
 ## Write a Plugin
 
