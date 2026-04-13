@@ -22,8 +22,7 @@ interface Trigger {
 export default async function () {
   let data: { triggers: Trigger[]; total: number };
   try {
-    const res = await fetch(`${maw.baseUrl()}/api/triggers`, { signal: AbortSignal.timeout(5000) });
-    data = await res.json() as typeof data;
+    data = await maw.fetch<typeof data>("/api/triggers");
   } catch {
     maw.print.err("Server unreachable — is maw serve running?");
     return;

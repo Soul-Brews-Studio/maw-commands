@@ -12,19 +12,13 @@ export const command = {
   description: "ARRA-01 rate limit monitor — accounts, capacity, traffic",
 };
 
-async function api<T>(path: string): Promise<T | null> {
-  try {
-    const res = await fetch(`${maw.baseUrl()}${path}`, { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) { const d = await res.json().catch(() => ({})); maw.print.err((d as any).error || "request failed"); return null; }
-    return await res.json() as T;
-  } catch { maw.print.err("Server unreachable"); return null; }
-}
-
 export default async function (args: string[]) {
   const sub = args[0]?.toLowerCase();
 
   if (sub === "best") {
-    const data = await api<any>("/api/avengers/best");
+    let data: any;
+    try { data = await maw.fetch("/api/avengers/best"); }
+    catch (e: any) { maw.print.err(e.message); return; }
     if (!data) return;
     maw.print.header("Best Account");
     maw.print.ok(`${data.account || data.name || "unknown"}`);
@@ -35,7 +29,9 @@ export default async function (args: string[]) {
   }
 
   if (sub === "traffic") {
-    const data = await api<{ traffic: any; speed: any }>("/api/avengers/traffic");
+    let data: { traffic: any; speed: any };
+    try { data = await maw.fetch("/api/avengers/traffic"); }
+    catch (e: any) { maw.print.err(e.message); return; }
     if (!data) return;
     maw.print.header("Traffic");
     if (Array.isArray(data.traffic)) {
@@ -47,8 +43,9 @@ export default async function (args: string[]) {
   }
 
   // Default: status
-  const data = await api<{ accounts: any[]; total: number }>("/api/avengers/status");
-  if (!data) return;
+  let data: { accounts: any[]; total: number };
+  try { data = await maw.fetch("/api/avengers/status"); }
+  catch (e: any) { maw.print.err(e.message); return; }
   maw.print.header(`Avengers (${data.total} accounts)`);
   if (!Array.isArray(data.accounts)) { maw.print.dim("No account data"); return; }
   for (const a of data.accounts) {

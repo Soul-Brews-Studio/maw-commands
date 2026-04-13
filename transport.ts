@@ -17,8 +17,7 @@ interface TransportStatus {
 export default async function () {
   let data: TransportStatus;
   try {
-    const res = await fetch(`${maw.baseUrl()}/api/transport/status`, { signal: AbortSignal.timeout(5000) });
-    data = await res.json() as TransportStatus;
+    data = await maw.fetch<TransportStatus>("/api/transport/status");
   } catch {
     maw.print.err("Server unreachable — is maw serve running?");
     return;

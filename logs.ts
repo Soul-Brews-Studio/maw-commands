@@ -10,16 +10,11 @@ export const command = {
   description: "Search session history or list agents",
 };
 
-async function api<T>(path: string): Promise<T | null> {
-  try {
-    const res = await fetch(`${maw.baseUrl()}${path}`, { signal: AbortSignal.timeout(15000) });
-    return res.ok ? await res.json() as T : null;
-  } catch { return null; }
-}
-
 export default async function (args: string[]) {
   if (args[0] === "agents") {
-    const data = await api<{ agents: { name: string; files: number; lines: number; lastModified: string | null }[] }>("/api/logs/agents");
+    let data: { agents: { name: string; files: number; lines: number; lastModified: string | null }[] };
+    try { data = await maw.fetch("/api/logs/agents", { timeout: 15000 }); }
+    catch { maw.print.dim("No agents found."); return; }
     if (!data?.agents?.length) { maw.print.dim("No agents found."); return; }
     maw.print.header(`Agents (${data.agents.length})`);
     const rows = data.agents.map((a) => [
@@ -36,9 +31,9 @@ export default async function (args: string[]) {
   const q = args.join(" ") || "";
   if (!q) { maw.print.dim("Usage: maw logs <query> | maw logs agents"); return; }
 
-  const data = await api<{ entries: { agent: string; timestamp: string; message: { role: string; content: string } | null }[] }>(
-    `/api/logs?q=${encodeURIComponent(q)}&limit=15`
-  );
+  let data: { entries: { agent: string; timestamp: string; message: { role: string; content: string } | null }[] };
+  try { data = await maw.fetch(`/api/logs?q=${encodeURIComponent(q)}&limit=15`, { timeout: 15000 }); }
+  catch { maw.print.dim(`No results for "${q}".`); return; }
   if (!data?.entries?.length) { maw.print.dim(`No results for "${q}".`); return; }
 
   maw.print.header(`Search: "${q}" (${data.entries.length} hits)`);

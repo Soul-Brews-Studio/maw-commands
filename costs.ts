@@ -26,8 +26,7 @@ interface CostsResponse {
 export default async function () {
   let data: CostsResponse;
   try {
-    const res = await fetch(`${maw.baseUrl()}/api/costs`, { signal: AbortSignal.timeout(10000) });
-    data = await res.json() as CostsResponse;
+    data = await maw.fetch<CostsResponse>("/api/costs", { timeout: 10000 });
   } catch {
     maw.print.err("Server unreachable — is maw serve running?");
     return;

@@ -21,8 +21,7 @@ interface Worktree {
 export default async function () {
   let data: Worktree[];
   try {
-    const res = await fetch(`${maw.baseUrl()}/api/worktrees`, { signal: AbortSignal.timeout(10000) });
-    data = await res.json() as Worktree[];
+    data = await maw.fetch<Worktree[]>("/api/worktrees", { timeout: 10000 });
   } catch {
     maw.print.err("Server unreachable — is maw serve running?");
     return;
